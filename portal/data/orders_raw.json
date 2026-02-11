@@ -3,6 +3,8 @@
     {
       "order_number": "RMA-1001",
       "email": "alex@example.com",
+      "recipient": "Alex Meyer",
+      "street": "Hauptstrasse 12, Apt 4B",
       "customer": {
         "first_name": "Alex",
         "last_name": "Meyer",
@@ -13,36 +15,85 @@
         "region_code": "BE",
         "country_code": "DE"
       },
+      "customer_id": "CUST-1001",
+      "customer_phone": "+49-30-123456",
+      "loyalty_tier": "silver",
+      "order_channel": "web",
+      "order_country": "DE",
+      "order_locale": "de-DE",
+      "order_discount_amount": 5.0,
+      "order_discount_code": "WELCOME5",
+      "order_subtotal_amount": 39.98,
+      "payment_status": "paid",
+      "payment_provider": "stripe",
+      "fulfillment_status": "fulfilled",
+      "delivery_status": "delivered",
+      "carrier": "dhl",
+      "tracking_number": "DE123456789",
+      "warehouse_location": "Berlin-DC1",
       "zip": "10115",
-      "purchased_at": "2025-12-01T10:00:00Z",
+      "order_date": "2025-12-01T10:00:00Z",
       "delivered_at": "2025-12-05T14:00:00Z",
-      "return_window_days": 30,
-      "items": [
+      "fulfillments": [
         {
+          "tracking_number": "DE123456789",
+          "carrier": "dhl",
+          "delivered_at": "2025-12-05T14:00:00Z"
+        }
+      ],
+      "articles": [
+        {
+          "line_item_id": "LI-1001-1",
+          "product_id": "PROD-TSHIRT-001",
+          "variant_id": "VAR-TSHIRT-001-M-BLK",
           "sku": "TSHIRT-BLK-M",
-          "name": "T-Shirt Black",
+          "name": "Vibe Tee - Bold & Basic with a Twist",
+          "brand": "weareparkers",
           "category": "apparel",
+          "size": "M",
+          "color": "black",
+          "image_url": "https://cdn.example.com/products/vibe-tee-black.png",
+          "store_url": "https://shop.example.com/products/vibe-tee",
           "quantity": 1,
           "quantity_returned": 0,
           "price": 29.99,
+          "unit_price_original": 34.99,
+          "discount_amount": 5.0,
+          "tax_amount": 0.0,
+          "weight": 0.2,
+          "weight_unit": "kg",
+          "fulfillment_status": "fulfilled",
           "digital": false,
-          "final_sale": false
+          "final_sale": false,
+          "tags": ["cotton", "seasonal"]
         },
         {
+          "line_item_id": "LI-1001-2",
+          "product_id": "PROD-EBOOK-101",
+          "variant_id": "VAR-EBOOK-101",
           "sku": "EBOOK-RETURNS",
-          "name": "Returns E-Book",
+          "name": "Returns Playbook (Digital)",
+          "brand": "returns-lab",
           "category": "digital",
+          "format": "pdf",
           "quantity": 1,
           "quantity_returned": 0,
           "price": 9.99,
+          "unit_price_original": 9.99,
+          "discount_amount": 0.0,
+          "tax_amount": 0.0,
+          "fulfillment_status": "delivered",
           "digital": true,
-          "final_sale": false
+          "final_sale": false,
+          "tags": ["ebook", "instant"]
         }
       ]
     },
     {
       "order_number": "RMA-1002",
       "email": "lee@example.com",
+      "recipient": "Lee Schmidt",
+      "street": "Rosental 45, c/o Office",
       "customer": {
         "first_name": "Lee",
         "last_name": "Schmidt",
@@ -53,30 +104,82 @@
         "region_code": "BY",
         "country_code": "DE"
       },
+      "customer_id": "CUST-1002",
+      "customer_phone": "+49-89-987654",
+      "loyalty_tier": "gold",
+      "order_channel": "marketplace",
+      "order_country": "DE",
+      "order_locale": "de-DE",
+      "order_discount_amount": 0.0,
+      "order_discount_code": "",
+      "order_subtotal_amount": 139.98,
+      "payment_status": "paid",
+      "payment_provider": "paypal",
+      "fulfillment_status": "partial",
+      "delivery_status": "delivered",
+      "carrier": "ups",
+      "tracking_number": "1Z999AA10123456784",
+      "warehouse_location": "Munich-DC2",
       "zip": "80331",
-      "purchased_at": "2025-10-01T10:00:00Z",
+      "order_date": "2025-10-01T10:00:00Z",
       "delivered_at": "2025-10-05T14:00:00Z",
-      "return_window_days": 30,
-      "items": [
+      "fulfillments": [
         {
+          "tracking_number": "1Z999AA10123456784",
+          "carrier": "ups",
+          "delivered_at": "2025-10-05T14:00:00Z"
+        }
+      ],
+      "articles": [
+        {
+          "line_item_id": "LI-1002-1",
+          "product_id": "PROD-SHOES-204",
+          "variant_id": "VAR-SHOES-204-42",
           "sku": "SHOES-CLR-42",
-          "name": "Clearance Shoes",
+          "name": "Clearance Runner 2.0",
+          "brand": "northlane",
           "category": "footwear",
+          "size": "42",
+          "color": "white",
+          "image_url": "https://cdn.example.com/products/runner-2-0-white.png",
+          "store_url": "https://shop.example.com/products/runner-2-0",
           "quantity": 1,
           "quantity_returned": 0,
           "price": 49.99,
+          "unit_price_original": 89.99,
+          "discount_amount": 40.0,
+          "tax_amount": 0.0,
+          "weight": 0.9,
+          "weight_unit": "kg",
+          "fulfillment_status": "fulfilled",
           "digital": false,
-          "final_sale": true
+          "final_sale": true,
+          "tags": ["clearance", "final-sale"]
         },
         {
+          "line_item_id": "LI-1002-2",
+          "product_id": "PROD-JACKET-310",
+          "variant_id": "VAR-JACKET-310-L-GRN",
           "sku": "JACKET-GRN-L",
-          "name": "Green Jacket",
+          "name": "Summit Shell Jacket",
+          "brand": "northlane",
           "category": "apparel",
+          "size": "L",
+          "color": "green",
+          "image_url": "https://cdn.example.com/products/summit-shell-green.png",
+          "store_url": "https://shop.example.com/products/summit-shell",
           "quantity": 1,
           "quantity_returned": 1,
           "price": 89.99,
+          "unit_price_original": 89.99,
+          "discount_amount": 0.0,
+          "tax_amount": 0.0,
+          "weight": 0.6,
+          "weight_unit": "kg",
+          "fulfillment_status": "fulfilled",
           "digital": false,
-          "final_sale": false
+          "final_sale": false,
+          "tags": ["outerwear", "waterproof"]
         }
       ]
     }

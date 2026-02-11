@@ -1,34 +1,46 @@
-from dataclasses import dataclass
+"""Business datatypes for the returns portal."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 from datetime import datetime
 
 
-@dataclass(frozen=True)
-class LineItem:
+@dataclass
+class Article:
+    """A single article (line item) in an order."""
+
     sku: str
     name: str
-    category: str | None
     quantity: int
     quantity_returned: int
     price: float
-    is_digital: bool
-    is_final_sale: bool
+
+    is_digital: bool = False
+    is_final_sale: bool = False
+    category: str = ""
 
 
-@dataclass(frozen=True)
-class ReturnRegistration:
+@dataclass
+class Order:
+    """A mapped customer order."""
+
     order_number: str
     email: str
+    recipient: str
     zip: str
-    purchased_at: datetime
-    delivered_at: datetime
-    return_window_days: int
-    items: list[LineItem]
+    street: str
+    city: str
+    order_date: datetime
+    delivery_date: datetime
+    articles: list[Article] = field(default_factory=list)
 
 
-@dataclass(frozen=True)
-class EligibilityResult:
-    sku: str
-    returnable: bool | None
-    flag: str
-    reason: str
-    matched_rule_id: str | None
+@dataclass
+class ArticleEligibility:
+    """Result of evaluating return eligibility for a single article."""
+
+    article: Article
+    returnable: bool
+    reason: str  # human-readable explanation (empty string when returnable)
+    matched_rule: str  # identifier of the rule that matched (empty when returnable)

@@ -1,15 +1,42 @@
 {% extends "returns/base.html" %}
+
+{% block title %}Start your return &mdash; Returns Portal{% endblock %}
+
 {% block content %}
-  <h1>Returns Portal</h1>
-  <form method="post" action="{% url 'submit_lookup' %}">
-    {% csrf_token %}
-    <label>Order number</label>
-    <input name="order_number" required />
-    <label>Email or ZIP</label>
-    <input name="email_or_zip" required />
-    <button type="submit">Find order</button>
-  </form>
-  {% if error %}
-    <p role="alert">{{ error }}</p>
-  {% endif %}
+<div style="max-width: 420px; margin: 2rem auto;">
+    <div class="card">
+        <h1 class="text-center" style="margin-bottom: 0.5rem;">Start your return</h1>
+        <p class="text-center help-text" style="margin-bottom: 1.5rem;">
+            Enter your order number and the email or zip code used when placing the order.
+        </p>
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-error">
+            {% for error in form.non_field_errors %}
+            <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                <p class="help-text">{{ field.help_text }}</p>
+                {% endif %}
+                {% if field.errors %}
+                <p class="help-text" style="color: var(--color-error);">{{ field.errors.0 }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+                Look up order
+            </button>
+        </form>
+    </div>
+</div>
 {% endblock %}

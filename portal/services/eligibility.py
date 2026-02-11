@@ -1,34 +1,22 @@
+"""Return eligibility engine."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
-
-from portal.types import EligibilityResult, ReturnRegistration
+from portal.types import ArticleEligibility, Order
 
 
-@dataclass(frozen=True)
-class Rule:
-    rule_id: str
-    priority: int
-    result: dict[str, Any]
-    when: dict[str, Any]
+def evaluate_eligibility(order: Order) -> list[ArticleEligibility]:
+    """Evaluate return eligibility for every article in *order*.
 
-
-def load_rules() -> list[Rule]:
-    # Intentionally left empty: candidates define their own rules structure.
-    return []
-
-
-def evaluate_eligibility(
-    order: ReturnRegistration, rules: list[Rule]
-) -> list[EligibilityResult]:
+    Returns:
+        A list of :class:`ArticleEligibility`, one per article in the order.
+    """
     return [
-        EligibilityResult(
-            sku=item.sku,
-            returnable=None,
-            flag="unknown",
-            reason="Eligibility not evaluated.",
-            matched_rule_id=None,
+        ArticleEligibility(
+            article=article,
+            returnable=True,
+            reason="",
+            matched_rule="",
         )
-        for item in order.items
+        for article in order.articles
     ]
