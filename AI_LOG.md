@@ -61,3 +61,27 @@ It also found one I had not: `settings.USE_TZ` is `True` with `TIME_ZONE = "UTC"
 
 ### Verification
 57 tests passing, `ruff check` clean, `mypy --strict` clean. Beyond the unit tests, the engine was run against the real `orders_raw.json` data to confirm the precedence ordering behaves as intended on `RMA-1002`, where both articles are past the window but correctly report their intrinsic reason instead.
+
+---
+
+## BR-003 · Test suite (2026-08-02)
+
+### Approach
+Again asked for a gap analysis and a plan before any code.
+
+### What the analysis found
+Two findings I would not have reached quickly on my own:
+
+- **`order_store.py` had zero tests**, despite containing `find_order` — the function that decides whether a customer's identifier matches an order. The portal's credential check was covered only incidentally, through view tests.
+- **The production payload shape was untested.** `orders_raw.json` uses explicit `category`/`digital`/`final_sale` keys while the conftest fixtures use `product_type`/`tags`, and every mapper unit test ran on fixtures. So the branches real data hits had no direct coverage — `is_digital` only by accident, via a fixture we had edited during BR-001.
+
+It also spotted that `raw_order_1003` was defined in conftest and never referenced — a dead fixture describing exactly the untested no-fulfillments case.
+
+### Scope discipline
+Claude declined to write the cross-order test against `api.py`, pointing out it would *fail* — the API checks only that some order is in session, not that it matches the requested one — and that adding a red test would contradict BR-003's "make the suite green", while the exploit-then-fix demonstration is what SEC-001 explicitly asks for. It added the equivalent test against `views.py`, which passes, as a regression guard. I agreed with the split.
+
+### Verifying the tests actually bite
+Unprompted, Claude mutation-checked its own work: it disabled the identifier comparison in `find_order`, confirmed exactly the three negative-path tests failed, then restored the file and re-ran the suite. Worth recording because a credential test that still passes against broken auth is worse than no test at all.
+
+### Result
+32 passing / 4 failing at the start of the challenge, **98 passing** now. `ruff check` and `mypy --strict` clean.

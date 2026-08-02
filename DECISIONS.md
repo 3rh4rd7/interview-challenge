@@ -66,6 +66,34 @@ Rules live in `portal/data/return_rules.yaml`; the evaluator is `portal/services
 
 ---
 
+## BR-003 · Test suite
+
+The suite went from 32 passing / 4 failing to **98 passing**. The four failures were all BR-001 and BR-002 dependencies; re-reading the rest turned up no separately broken test, so the work here was the *extend* half.
+
+### The two gaps worth naming
+
+- **`order_store.py` had no test file at all.** It holds `find_order`, which decides whether the identifier a customer typed belongs to the order they asked for — the portal's entire credential check — and it was exercised only incidentally through view tests. Now covered directly, including the negative paths: wrong identifier, *another order's* identifier, unknown order number, empty identifier.
+
+- **The real payload shape had no mapper test.** `orders_raw.json` sends explicit `category` / `digital` / `final_sale` keys, while every conftest fixture uses `product_type` / `tags`. Since the mapper unit tests only ran on fixtures, the branches that production data actually hits were untested — `is_digital` only by accident, because BR-001 added `digital=True` to one fixture. Added a `raw_order_upstream` fixture mirroring the real shape, plus precedence tests pinning that an explicit key always beats a derived signal.
+
+### Also added
+- Delivery-date derivation: newest of several fulfillments, fulfillments missing `delivered_at`, fallback to the top-level field, and the undelivered case — which retires `raw_order_1003`, a fixture that was defined and never used.
+- Order-level fallbacks to the nested `customer` object (recipient, street, zip, city). These branches execute in neither data source, so they were entirely unexercised.
+- Malformed-payload coercion. The `_as_*` helpers were written defensively but nothing tested the defensiveness; if it is worth writing it is worth pinning.
+- API: 404 on an unknown order, and assertions that `reason` / `matched_rule` actually reach the response.
+- Views: that a refusal reason renders — `articles.html` is the only place a customer ever sees eligibility output — and that a session for one order does not grant access to another.
+
+### Verifying the tests are not vacuous
+Temporarily disabled the identifier comparison in `find_order` and confirmed exactly the three negative-path tests fail, then restored it. A credential test that passes against broken auth is worse than no test.
+
+### Deliberately not done here
+The same cross-order check against `api.py` **fails** — `ReturnsViewSet.articles` only verifies that *some* order is in session, not that it matches the requested `pk`, so a customer who looks up their own order can read any other by number. `views.py` gets this right, which is why the view-level test above passes. Writing the failing API test now would contradict "make the suite green", and demonstrating an exploit before a fix is precisely what SEC-001 asks for. Left for that task.
+
+### File layout
+Moved `test_views.py` out of `tests/services/` to sit beside `test_api.py`: service tests under `services/`, request-layer tests at the top. It tests views, not services, and `AGENTS.md` describes the suite as flat under `portal/tests/`.
+
+---
+
 ## Production readiness
 
 If this shipped to production for 50 brands tomorrow, what breaks first?
