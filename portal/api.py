@@ -101,7 +101,14 @@ class ReturnsViewSet(viewsets.ViewSet):
     @action(detail=True, methods=["get"], url_path="articles")
     def articles(self, request: Request, pk: str | None = None) -> Response:
         order_number = pk or ""
-        if not request.session.get("order_number"):
+
+        # The session records which order the caller proved ownership of, so it
+        # must be compared against the order being requested -- checking only
+        # that *some* order is present let any customer read every other order
+        # by number (SEC-001).  This mirrors the check ArticlesView already
+        # performs.  Deliberately evaluated before the order is looked up, so a
+        # caller cannot tell "exists but not yours" from "no such order".
+        if request.session.get("order_number") != order_number:
             return Response(
                 {"detail": "Order lookup is required before viewing articles."},
                 status=status.HTTP_403_FORBIDDEN,

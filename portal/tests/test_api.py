@@ -84,7 +84,15 @@ class TestReturnsApiViewSet:
 
         assert response.status_code == 400
 
-    def test_articles_for_unknown_order_returns_404(self) -> None:
+    def test_articles_for_an_order_you_did_not_look_up_is_forbidden(self) -> None:
+        """Was 404 before SEC-001.
+
+        Authorization is now checked before the order is looked up, so an
+        unknown order and another customer's order both return 403 rather than
+        revealing which order numbers exist.  The 404 branch survives only for
+        the case where the caller's *own* order vanishes from the store between
+        lookup and this request.
+        """
         client = APIClient()
         client.post(
             "/api/returns/lookup/",
@@ -94,7 +102,7 @@ class TestReturnsApiViewSet:
 
         response = client.get("/api/returns/RMA-NOPE/articles/")
 
-        assert response.status_code == 404
+        assert response.status_code == 403
 
     def test_blocked_article_reports_the_rule_that_blocked_it(self) -> None:
         client = APIClient()
@@ -124,3 +132,68 @@ class TestReturnsApiViewSet:
         assert tshirt["returnable"] is True
         assert tshirt["matched_rule"] == ""
         assert tshirt["reason"] == ""
+
+
+class TestCrossOrderAccess:
+    """SEC-001: a session for one order must not unlock any other order.
+
+    ``ReturnsViewSet.articles`` used to check only that *some* order number sat
+    in the session, never that it matched the order being requested.  Any
+    customer could therefore authenticate with an order they legitimately owned
+    and then read every other order by number.  ``views.py`` always compared
+    the two, so the browser flow was never affected -- the API was the outlier.
+
+    See SECURITY.md.
+    """
+
+    def _authenticate_as_own_order(self) -> APIClient:
+        """Log in legitimately as the owner of RMA-1001."""
+        client = APIClient()
+        response = client.post(
+            "/api/returns/lookup/",
+            {"order_number": "RMA-1001", "identifier": "alex@example.com"},
+            format="json",
+        )
+        assert response.status_code == 200
+        return client
+
+    def test_cannot_read_another_customers_order(self) -> None:
+        client = self._authenticate_as_own_order()
+
+        response = client.get("/api/returns/RMA-1002/articles/")
+
+        assert response.status_code == 403
+
+    def test_does_not_leak_another_customers_personal_data(self) -> None:
+        """The exploit's payoff was PII, so assert on the payload, not just the code."""
+        client = self._authenticate_as_own_order()
+
+        response = client.get("/api/returns/RMA-1002/articles/")
+        body = response.content.decode()
+
+        assert "Lee Schmidt" not in body
+        assert "lee@example.com" not in body
+        assert "Rosental 45" not in body
+        assert "JACKET-GRN-L" not in body
+
+    def test_own_order_is_still_reachable(self) -> None:
+        """The fix must not break the legitimate path."""
+        client = self._authenticate_as_own_order()
+
+        response = client.get("/api/returns/RMA-1001/articles/")
+
+        assert response.status_code == 200
+
+    def test_unknown_order_is_indistinguishable_from_someone_elses(self) -> None:
+        """No enumeration oracle: authorization is checked before existence.
+
+        A caller must not be able to tell "this order exists but is not yours"
+        (403) from "no such order" (404) -- that would confirm which order
+        numbers are real.  Both return 403.
+        """
+        client = self._authenticate_as_own_order()
+
+        someone_elses = client.get("/api/returns/RMA-1002/articles/")
+        nonexistent = client.get("/api/returns/RMA-NOPE/articles/")
+
+        assert someone_elses.status_code == nonexistent.status_code == 403
