@@ -49,6 +49,36 @@ def _as_float(value: object, default: float = 0.0) -> float:
     return default
 
 
+def _is_digital(item: dict[str, Any]) -> bool:
+    """True when the upstream payload explicitly marks the item as digital."""
+    value = item.get("digital")
+    if isinstance(value, bool):
+        return value
+    return False
+
+
+def _is_final_sale(item: dict[str, Any]) -> bool:
+    """True when the item carries a final_sale flag or a 'final-sale' tag."""
+    value = item.get("final_sale")
+    if isinstance(value, bool):
+        return value
+    tags = item.get("tags")
+    if isinstance(tags, list):
+        return "final-sale" in tags
+    return False
+
+
+def _derive_category(item: dict[str, Any]) -> str:
+    """Return the item's category, falling back to the first segment of product_type."""
+    category = _as_str(item.get("category"))
+    if category:
+        return category
+    product_type = _as_str(item.get("product_type"))
+    if product_type:
+        return product_type.split(" > ")[0].lower()
+    return ""
+
+
 def map_order(raw: dict[str, Any]) -> Order:
     """Map a raw order dict (from ``orders_raw.json``) to an :class:`Order`.
 
@@ -85,9 +115,9 @@ def map_order(raw: dict[str, Any]) -> Order:
                 quantity=_as_int(item.get("quantity"), default=1),
                 quantity_returned=_as_int(item.get("quantity_returned"), default=0),
                 price=_as_float(item.get("price")),
-                is_digital=False,
-                is_final_sale=False,
-                category="",
+                is_digital=_is_digital(item),
+                is_final_sale=_is_final_sale(item),
+                category=_derive_category(item),
             )
         )
 

@@ -71,3 +71,50 @@ class TestMapArticleMissingFields:
         order = map_order(raw_order_1001)
         ebook = order.articles[1]  # EBOOK-RETURNS
         assert ebook.category == "digital"
+
+    def test_is_digital_false_for_physical_item(
+        self, raw_order_1001: dict[str, Any]
+    ) -> None:
+        """A physical t-shirt must not be flagged as digital."""
+        order = map_order(raw_order_1001)
+        tshirt = order.articles[0]  # TSHIRT-BLK-M
+        assert tshirt.is_digital is False
+
+    def test_is_final_sale_false_for_regular_item(
+        self, raw_order_1001: dict[str, Any]
+    ) -> None:
+        """A regular item without final-sale markers should not be flagged."""
+        order = map_order(raw_order_1001)
+        tshirt = order.articles[0]  # TSHIRT-BLK-M
+        assert tshirt.is_final_sale is False
+
+    def test_is_final_sale_from_tags(self, raw_order_1002: dict[str, Any]) -> None:
+        """final_sale key absent but 'final-sale' tag present — should be True."""
+        order = map_order(raw_order_1002)
+        shoes = order.articles[0]  # SHOES-CLR-42
+        assert shoes.is_final_sale is True
+
+    def test_category_from_product_type_fallback(
+        self, raw_order_1002: dict[str, Any]
+    ) -> None:
+        """When no 'category' key exists, derive it from the first product_type segment."""
+        order = map_order(raw_order_1002)
+        shoes = order.articles[0]  # SHOES-CLR-42 — product_type="Footwear > Sneakers"
+        assert shoes.category == "footwear"
+
+    def test_category_empty_when_no_source(self) -> None:
+        """An article with neither 'category' nor 'product_type' gets an empty string."""
+        raw = {
+            "order_number": "TEST-000",
+            "email": "x@x.com",
+            "recipient": "X",
+            "zip": "00000",
+            "street": "X",
+            "city": "X",
+            "order_date": "2025-01-01T00:00:00Z",
+            "articles": [
+                {"sku": "BARE-SKU", "name": "Bare Article", "quantity": 1, "price": 1.0}
+            ],
+        }
+        order = map_order(raw)
+        assert order.articles[0].category == ""

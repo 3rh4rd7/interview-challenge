@@ -80,6 +80,7 @@ def raw_order_1001() -> RawOrder:
                 quantity=1,
                 price=9.99,
                 requires_shipping=False,
+                digital=True,
                 tags=["digital-delivery"],
             ),
             _make_raw_article(
