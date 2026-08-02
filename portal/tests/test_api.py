@@ -72,3 +72,55 @@ class TestReturnsApiViewSet:
         assert second["article"]["sku"] == "EBOOK-RETURNS"
         assert second["returnable"] is False
         assert second["selectable"] is False
+
+    def test_lookup_requires_both_fields(self) -> None:
+        client = APIClient()
+
+        response = client.post(
+            "/api/returns/lookup/",
+            {"order_number": "RMA-1001"},
+            format="json",
+        )
+
+        assert response.status_code == 400
+
+    def test_articles_for_unknown_order_returns_404(self) -> None:
+        client = APIClient()
+        client.post(
+            "/api/returns/lookup/",
+            {"order_number": "RMA-1001", "identifier": "alex@example.com"},
+            format="json",
+        )
+
+        response = client.get("/api/returns/RMA-NOPE/articles/")
+
+        assert response.status_code == 404
+
+    def test_blocked_article_reports_the_rule_that_blocked_it(self) -> None:
+        client = APIClient()
+        client.post(
+            "/api/returns/lookup/",
+            {"order_number": "RMA-1001", "identifier": "alex@example.com"},
+            format="json",
+        )
+
+        response = client.get("/api/returns/RMA-1001/articles/")
+
+        ebook = response.data["results"][1]
+        assert ebook["matched_rule"] == "digital-item"
+        assert ebook["reason"] != ""
+
+    def test_returnable_article_reports_no_rule(self) -> None:
+        client = APIClient()
+        client.post(
+            "/api/returns/lookup/",
+            {"order_number": "RMA-1001", "identifier": "alex@example.com"},
+            format="json",
+        )
+
+        response = client.get("/api/returns/RMA-1001/articles/")
+
+        tshirt = response.data["results"][0]
+        assert tshirt["returnable"] is True
+        assert tshirt["matched_rule"] == ""
+        assert tshirt["reason"] == ""

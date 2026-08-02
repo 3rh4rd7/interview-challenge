@@ -80,3 +80,25 @@ class TestArticlesView:
         response = client.get("/returns/RMA-1001/articles/")
         assert response.status_code == 200
         assert b"TSHIRT-BLK-M" in response.content
+
+    def test_blocked_article_shows_its_reason(self, client: Client) -> None:
+        """The refusal reason is the only eligibility output a customer sees."""
+        client.post(
+            "/returns/",
+            {"order_number": "RMA-1001", "identifier": "alex@example.com"},
+        )
+
+        response = client.get("/returns/RMA-1001/articles/")
+
+        assert "Digital items cannot be returned." in response.content.decode()
+
+    def test_session_for_another_order_redirects(self, client: Client) -> None:
+        """A lookup for one order must not grant access to a different one."""
+        client.post(
+            "/returns/",
+            {"order_number": "RMA-1001", "identifier": "alex@example.com"},
+        )
+
+        response = client.get("/returns/RMA-1002/articles/")
+
+        assert response.status_code == 302

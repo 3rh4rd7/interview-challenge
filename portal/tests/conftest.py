@@ -139,6 +139,55 @@ def raw_order_1002() -> RawOrder:
 
 
 @pytest.fixture()
+def raw_order_upstream() -> RawOrder:
+    """Raw payload in the shape ``orders_raw.json`` actually uses.
+
+    The other fixtures describe articles with ``product_type`` and ``tags``.
+    Upstream instead sends explicit ``category``, ``digital`` and
+    ``final_sale`` keys, so that shape needs its own coverage.
+    """
+    return _make_raw_order(
+        order_number="RMA-9001",
+        email="upstream@example.com",
+        articles=[
+            {
+                "sku": "TSHIRT-BLK-M",
+                "name": "Vibe Tee",
+                "category": "apparel",
+                "quantity": 1,
+                "quantity_returned": 0,
+                "price": 29.99,
+                "digital": False,
+                "final_sale": False,
+                "tags": ["cotton", "seasonal"],
+            },
+            {
+                "sku": "EBOOK-RETURNS",
+                "name": "Returns Playbook",
+                "category": "digital",
+                "quantity": 1,
+                "quantity_returned": 0,
+                "price": 9.99,
+                "digital": True,
+                "final_sale": False,
+                "tags": ["ebook"],
+            },
+            {
+                "sku": "SHOES-CLR-42",
+                "name": "Clearance Runner",
+                "category": "footwear",
+                "quantity": 1,
+                "quantity_returned": 0,
+                "price": 49.99,
+                "digital": False,
+                "final_sale": True,
+                "tags": ["clearance", "final-sale"],
+            },
+        ],
+    )
+
+
+@pytest.fixture()
 def raw_order_1003() -> RawOrder:
     """Raw payload matching order RMA-1003 (no fulfillments)."""
     return _make_raw_order(
