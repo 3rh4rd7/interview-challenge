@@ -106,3 +106,26 @@ Claude declined to invent return windows for categories beyond the two the brief
 
 ### Verification
 114 tests passing, `ruff check` and `mypy --strict` clean. Also exercised end to end at 20 days post-delivery: electronics expired on its 14-day window while apparel and unconfigured footwear both survived on 30, and a deliberately mis-cased `ELECTRONICS` article resolved correctly.
+
+---
+
+## SEC-001 · Security audit (2026-08-02)
+
+### Approach
+Claude had already spotted the cross-order read in `api.py` back in the very first repository analysis, and deliberately left it unfixed through BR-003 so the exploit-before/fix-after demonstration would belong to this task.
+
+For the audit itself it ran a second, independent pass over everything *else* — explicitly instructed to skip the finding we already had — covering the credential model, enumeration, rate limiting, session handling, CSRF, Django settings, templates and the DRF surface. I liked that the two passes were kept separate: the known bug did not anchor the search for the unknown ones.
+
+### What each pass contributed
+Mine/Claude's direct analysis produced the IDOR, a working reproduction against real data, and confirmation that the browser flow was unaffected. The second pass produced the unthrottled zip-code credential, the DRF CSRF gap (with the specific mechanism — `SessionAuthentication.enforce_csrf` never fires because `request.user` is always `AnonymousUser`), missing session rotation, cookie flags, and `DEBUG`/`SECRET_KEY`. It also ruled several candidates *out* with reasons, including verifying there is no `|safe`/`mark_safe` anywhere, which is as useful as the findings themselves.
+
+### Judgement calls worth recording
+- **Ranking.** Claude ranked the IDOR above the brute-force front door, but said plainly the ordering was arguable and that the credential model is the more fundamental flaw which the fix does not address. I would rather see the uncertainty stated than a confident false ordering.
+- **Anti-enumeration.** It noticed the naive fix would leave an oracle — 403 for "exists but not yours" versus 404 for "no such order" — and placed the authorization check before the existence lookup so both return 403. That deliberately broke one of its own BR-003 tests, and it updated that test with a docstring explaining the change rather than quietly editing the expectation.
+- **Declining scope.** I told it not to add DRF throttling. It had already argued against doing so, on the grounds that per-process throttling behind multiple workers would look like a fix without being one — which is a better reason than "out of scope".
+
+### A mistake
+While adding the exploit tests it made a bad edit that renamed an unrelated existing test by appending an underscore. It caught this immediately, reverted it, and verified the file was byte-identical to `HEAD` before continuing rather than assuming.
+
+### Verification
+118 tests passing, `ruff check` and `mypy --strict` clean. The exploit was reproduced against real data before the fix and re-run after; three of the four new tests fail against the unfixed code. `portal/api.py` has a pre-existing formatting deviation at line 146 that was left untouched to keep the security diff to a single line plus its comment.

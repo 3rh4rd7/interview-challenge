@@ -131,6 +131,36 @@ Deliberately *not* added: a statutory minimum (EU distance selling mandates 14 d
 
 ---
 
+## SEC-001 · Security audit
+
+Full write-up in [SECURITY.md](SECURITY.md). Summary of the decisions:
+
+- **Audited the model, not just the bug.** Six findings ranked by real-world exploitability, plus five candidates explicitly ruled out with reasons.
+- **Fixed the cross-order read** in `api.py` — a session for one order could read every other order by number, exposing name, email, full address and purchase history. One line, mirroring the check `ArticlesView` already performed.
+- **Ordered the check before the lookup**, so an unknown order and someone else's order both return 403. The naive fix would have left an enumeration oracle (403 = exists but not yours, 404 = no such order). This deliberately changed one existing test from 404 to 403.
+- **Demonstrated before and after.** Three of the four new tests fail against the unfixed code; all pass after.
+- **Did not add rate limiting**, though the unthrottled zip-code credential is the more fundamental flaw. Per-process throttling is close to theatre behind multiple workers, so doing it properly is an infrastructure decision — and retiring zip-as-credential is a product decision about support load, not an engineering one. Both are written up as escalations.
+- **Flagged the detection gap**: nothing logs authorization failures, so the application cannot currently tell whether this was already exploited. Given the researcher's claim in the brief, that question — and any GDPR notification clock — belongs with the team immediately rather than in a pull request.
+
+---
+
+## What I skipped, and why
+
+**Done:** BR-001, BR-002, BR-003 (required), plus BR-004 and SEC-001 from the electives.
+
+**Skipped:** FR-001 (returnable-only HTMX toggle) and FR-002 (return submission flow).
+
+Neither is required, and the brief asks for electives that best show what I can do, with depth beating breadth. Given a fixed time box, two backend electives taken properly seemed a better demonstration than four taken shallowly:
+
+- **SEC-001** exercises threat modelling, ranking by real exploitability rather than severity, and a fix whose *ordering* matters more than its content — the naive version of that one-line change would have closed the data leak while leaving an enumeration oracle behind. That is the kind of judgement the FR tasks would not have surfaced.
+- **BR-004** was chosen partly because it was cheap, the resolver having been built during BR-002 — but it turned out to be the task that exposed the category-normalisation bug, which is the sort of silent failure worth catching.
+
+FR-002 is the largest remaining item and the one I would pick up next, because its interesting part is not the happy path. The brief's aside about impatient customers double-clicking submit or refreshing the success page is really a question about **idempotency**: a submitted return needs a stable identity so a repeat POST resolves to the same return rather than creating a second one, and the success page needs to be safe to reload. That means a persisted return with a natural key, `POST`-redirect-`GET`, and a decision about what a duplicate submission *means* rather than just guarding against it. Doing that carelessly would be worse than not doing it, and doing it properly is more than the remaining budget allows.
+
+And the honest reason the budget ran out where it did: it is Sunday, the required work is finished, and I would rather stop at a clean, defensible point than rush a half-built submission flow into the repository. The brief says it prefers clean partial work over a rushed complete solution, and I took that at face value.
+
+---
+
 ## Production readiness
 
 If this shipped to production for 50 brands tomorrow, what breaks first?
