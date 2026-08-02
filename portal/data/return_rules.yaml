@@ -1,0 +1,40 @@
+# Return eligibility rules.
+#
+# Evaluated top to bottom, first match wins.  A rule describes a reason to
+# *block* a return; an article that matches no rule is returnable.
+#
+# `condition` must name a predicate registered in
+# portal/services/eligibility.py — an unknown name fails at load time rather
+# than silently letting the article through.
+#
+# `reason` is shown to the customer verbatim (see templates/returns/articles.html),
+# so it should read as a sentence, not as an internal code.
+
+version: 1
+
+# Days after delivery during which a return may be requested.  Inclusive:
+# a 30-day window still accepts a request on day 30.
+default_window_days: 30
+
+# Per-category overrides for the window above.  Any category not listed here
+# falls back to `default_window_days`.
+category_window_days: {}
+
+rules:
+  # Ordered intrinsic-first: a property that makes an item permanently
+  # non-returnable is a more accurate explanation than "you were too late".
+  - id: already-returned
+    condition: fully_returned
+    reason: "All units of this item have already been returned."
+
+  - id: digital-item
+    condition: is_digital
+    reason: "Digital items cannot be returned."
+
+  - id: final-sale
+    condition: is_final_sale
+    reason: "Final-sale items cannot be returned."
+
+  - id: window-expired
+    condition: window_expired
+    reason: "The return window for this item has closed."
