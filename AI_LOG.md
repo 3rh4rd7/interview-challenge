@@ -23,3 +23,41 @@ Claude Code (Anthropic CLI)
 
 ### Net result
 All decisions reflect deliberate back-and-forth. Claude wrote the code; I directed the design choices.
+
+### Naming
+Asked whether `_category` should be `_get_category`, on the assumption that functions should be verbs. Claude pushed back: `get_` is a Java/C# convention that Python leans away from (hence `@property`), and PEP 8 mandates casing but not verbs — the stdlib is full of noun-named functions (`os.path.dirname`, `inspect.signature`, `dataclasses.fields`). It suggested `_derive_category` instead, on the grounds that the function is not a plain accessor but runs a fallback chain. Adopted.
+
+---
+
+## BR-002 · Eligibility engine (2026-08-02)
+
+### Approach
+Asked for requirements analysis and an execution plan *before* any code, then reviewed the plan and approved it.
+
+### What the analysis surfaced
+Reading the existing contract first changed the design. `types.ArticleEligibility` documents `reason` and `matched_rule` as empty when returnable, which implies a deny-list rather than an allow-list, and `matched_rule` being singular forces a first-match-wins model. `articles.html` renders `reason` directly, so reasons are customer-facing copy rather than internal codes. Claude also noticed `pydantic` was already a dependency *and* that `[tool.mypy]` already enables the `pydantic.mypy` plugin — a strong hint from the scaffold about the intended tool for config parsing.
+
+It also flagged that `portal/models.py` defines `EligibilityResult` / `ReturnRegistration` / `LineItem` which nothing imports, and recommended leaving them alone rather than half-migrating to a second result shape.
+
+### Decisions I was asked to make
+Claude presented three choices with recommendations rather than picking silently:
+1. **Rule precedence** — intrinsic properties before the time window, so a final-sale item says "final sale" rather than "window closed".
+2. **Inclusive window boundary**, compared by date not timestamp, to avoid a window expiring mid-day.
+3. **Build the category-window resolver in BR-002**, leaving BR-004 as a data-only change.
+
+I approved all three.
+
+### Review round
+Two things I raised on reading the result:
+
+**`load_rules` was hard to read.** It did four jobs in one body and repeated the same `f"Rules file at {path}"` prefix five times, so the actual flow was buried in error handling. Claude split it into `_read_yaml_mapping`, `_build_config` and `_reject_unknown_conditions`, leaving `load_rules` as four lines that read as a summary — and noted this also matches how `mapper.py` is structured.
+
+**Why is `load_rules` public?** Claude's answer was that it completes the injection API: `evaluate_eligibility(order, rules=...)` is public and takes a `RulesConfig`, so callers need a supported way to load one from disk. It also conceded the honest counterpoint — the only non-test caller today is internal, so the API is partly speculative, and "tests call it" would not justify it alone. Kept public; the reasoning and the deferred startup-validation follow-up are recorded in `DECISIONS.md`.
+
+### Production readiness
+I prompted for the production concerns specific to the eligibility engine, having spotted two myself: the reason strings are not translatable, and the rules cannot be configured without a deploy. Claude grounded both in the actual data rather than leaving them abstract — both sample orders are `order_locale: "de-DE"` while `settings.LANGUAGE_CODE` is `en-us`, so German customers are shown English refusals today.
+
+It also found one I had not: `settings.USE_TZ` is `True` with `TIME_ZONE = "UTC"`, but `mapper._parse_dt` strips tzinfo and my window check calls `date.today()`, which reads the *server's* local date instead of Django's configured zone. On a non-UTC host the window closes a day early or late. And it raised retroactive rule changes — shortening a window instantly revokes a promise already made to customers who bought under the old terms — which is the concern I would now rank above both of mine.
+
+### Verification
+57 tests passing, `ruff check` clean, `mypy --strict` clean. Beyond the unit tests, the engine was run against the real `orders_raw.json` data to confirm the precedence ordering behaves as intended on `RMA-1002`, where both articles are past the window but correctly report their intrinsic reason instead.
