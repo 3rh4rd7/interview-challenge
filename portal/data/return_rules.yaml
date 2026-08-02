@@ -18,7 +18,22 @@ default_window_days: 30
 
 # Per-category overrides for the window above.  Any category not listed here
 # falls back to `default_window_days`.
-category_window_days: {}
+#
+# Keys are matched against the article's category after both sides are
+# lowercased and stripped, so "Electronics" and "electronics" are equivalent.
+# A key that matches no article is silently inert -- we cannot validate these
+# against a fixed list, because the categories come from upstream data.
+#
+# `apparel` repeats the current default deliberately: the product decision was
+# "apparel gets 30 days", not "apparel follows the default", so pinning it
+# keeps apparel at 30 if the default ever changes.
+#
+# No `digital` entry: digital articles are blocked by the digital-item rule
+# before the window is ever evaluated, so a window for them would be dead
+# config.
+category_window_days:
+  electronics: 14
+  apparel: 30
 
 rules:
   # Ordered intrinsic-first: a property that makes an item permanently

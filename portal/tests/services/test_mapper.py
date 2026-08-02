@@ -197,6 +197,31 @@ class TestFlagPrecedence:
         assert order.articles[0].is_digital is False
 
 
+class TestCategoryNormalisation:
+    """Category is a lookup key for return windows, so it must be canonical.
+
+    Upstream systems disagree on casing; an unnormalised value would miss the
+    window lookup and silently fall back to the default.
+    """
+
+    def test_explicit_category_is_lowercased(self) -> None:
+        order = map_order(_raw_order(articles=[_raw_article(category="Apparel")]))
+        assert order.articles[0].category == "apparel"
+
+    def test_explicit_category_is_stripped(self) -> None:
+        order = map_order(_raw_order(articles=[_raw_article(category="  apparel  ")]))
+        assert order.articles[0].category == "apparel"
+
+    def test_shouty_category_is_normalised(self) -> None:
+        order = map_order(_raw_order(articles=[_raw_article(category="ELECTRONICS")]))
+        assert order.articles[0].category == "electronics"
+
+    def test_product_type_fallback_is_normalised(self) -> None:
+        article = _raw_article(product_type="  Footwear > Sneakers")
+        order = map_order(_raw_order(articles=[article]))
+        assert order.articles[0].category == "footwear"
+
+
 class TestDeliveryDateDerivation:
     def test_uses_the_most_recent_fulfillment(self) -> None:
         raw = _raw_order(

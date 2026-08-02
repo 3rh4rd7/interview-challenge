@@ -348,6 +348,123 @@ class TestRulesFileLoading:
             load_rules(path)
 
 
+class TestShippedCategoryWindows:
+    """BR-004: the windows configured in the shipped rules file.
+
+    These deliberately use the real config rather than an injected one, so a
+    change to return_rules.yaml has to be a conscious one.
+    """
+
+    def test_electronics_window_is_shortened(self) -> None:
+        assert load_rules().window_days_for("electronics") == 14
+
+    def test_apparel_window_is_pinned_to_thirty(self) -> None:
+        assert load_rules().window_days_for("apparel") == 30
+
+    def test_unconfigured_category_falls_back_to_default(self) -> None:
+        assert load_rules().window_days_for("footwear") == 30
+
+    def test_articles_without_a_category_fall_back_to_default(self) -> None:
+        assert load_rules().window_days_for("") == 30
+
+    def test_electronics_expires_where_apparel_still_survives(self) -> None:
+        """The same delivery date, two categories, two different outcomes."""
+        order = _make_order(
+            delivery_date=datetime.now() - timedelta(days=20),
+            articles=[
+                _make_article(sku="LAPTOP-01", category="electronics"),
+                _make_article(sku="TSHIRT-01", category="apparel"),
+            ],
+        )
+
+        results = evaluate_eligibility(order)
+
+        assert results[0].returnable is False
+        assert results[0].matched_rule == "window-expired"
+        assert results[1].returnable is True
+
+
+class TestCategoryMatchingIsNormalised:
+    """Category lookup must not depend on upstream casing or whitespace.
+
+    A miss here would silently apply the default window rather than raise, so
+    these guard a failure mode nobody would notice in production.
+    """
+
+    def test_article_category_casing_does_not_matter(self) -> None:
+        config = _window_only_config(30, {"electronics": 14})
+        order = _make_order(
+            delivery_date=datetime.now() - timedelta(days=20),
+            articles=[_make_article(category="Electronics")],
+        )
+        assert evaluate_eligibility(order, rules=config)[0].returnable is False
+
+    def test_config_key_casing_does_not_matter(self) -> None:
+        config = _window_only_config(30, {"ELECTRONICS": 14})
+        order = _make_order(
+            delivery_date=datetime.now() - timedelta(days=20),
+            articles=[_make_article(category="electronics")],
+        )
+        assert evaluate_eligibility(order, rules=config)[0].returnable is False
+
+    def test_config_key_whitespace_does_not_matter(self) -> None:
+        config = _window_only_config(30, {"  electronics  ": 14})
+        assert config.window_days_for("electronics") == 14
+
+    def test_config_keys_are_normalised_when_loaded_from_file(
+        self, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "rules.yaml"
+        path.write_text(
+            "version: 1\n"
+            "default_window_days: 30\n"
+            "category_window_days:\n"
+            "  Electronics: 14\n"
+            "rules: []\n",
+            encoding="utf-8",
+        )
+        assert load_rules(path).window_days_for("electronics") == 14
+
+
+class TestWindowValidation:
+    """A negative window would mark everything expired on day zero."""
+
+    def test_negative_default_window_is_rejected(self, tmp_path: Path) -> None:
+        path = tmp_path / "rules.yaml"
+        path.write_text(
+            "version: 1\ndefault_window_days: -5\nrules: []\n", encoding="utf-8"
+        )
+        with pytest.raises(RuleConfigError, match="expected schema"):
+            load_rules(path)
+
+    def test_negative_category_window_is_rejected(self, tmp_path: Path) -> None:
+        path = tmp_path / "rules.yaml"
+        path.write_text(
+            "version: 1\n"
+            "default_window_days: 30\n"
+            "category_window_days:\n"
+            "  electronics: -1\n"
+            "rules: []\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(RuleConfigError, match="expected schema"):
+            load_rules(path)
+
+    def test_zero_window_means_same_day_only(self) -> None:
+        """Zero is meaningful, so it must stay valid: returnable on day 0 only."""
+        config = _window_only_config(0)
+        same_day = _make_order(
+            delivery_date=datetime.now(),
+            articles=[_make_article()],
+        )
+        next_day = _make_order(
+            delivery_date=datetime.now() - timedelta(days=1),
+            articles=[_make_article()],
+        )
+        assert evaluate_eligibility(same_day, rules=config)[0].returnable is True
+        assert evaluate_eligibility(next_day, rules=config)[0].returnable is False
+
+
 class TestExplicitRules:
     def test_injected_rules_replace_the_shipped_file(self) -> None:
         """An empty rule set makes everything returnable, proving injection works."""

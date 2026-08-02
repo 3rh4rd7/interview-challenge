@@ -69,14 +69,24 @@ def _is_final_sale(item: dict[str, Any]) -> bool:
 
 
 def _derive_category(item: dict[str, Any]) -> str:
-    """Return the item's category, falling back to the first segment of product_type."""
+    """Return the item's category, falling back to the first segment of product_type.
+
+    The result is normalised to lowercase without surrounding whitespace.  The
+    eligibility engine looks return windows up by category, so an upstream
+    system sending "Apparel" where another sends "apparel" would otherwise miss
+    the lookup and silently fall back to the default window.
+    """
     category = _as_str(item.get("category"))
     if category:
-        return category
+        return _normalise_category(category)
     product_type = _as_str(item.get("product_type"))
     if product_type:
-        return product_type.split(" > ")[0].lower()
+        return _normalise_category(product_type.split(" > ")[0])
     return ""
+
+
+def _normalise_category(value: str) -> str:
+    return value.strip().lower()
 
 
 def map_order(raw: dict[str, Any]) -> Order:

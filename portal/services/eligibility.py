@@ -17,9 +17,10 @@ from collections.abc import Callable
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from portal.types import Article, ArticleEligibility, Order
 
@@ -42,13 +43,33 @@ class RulesConfig(BaseModel):
     """Parsed contents of the rules file."""
 
     version: int
-    default_window_days: int
-    category_window_days: dict[str, int] = Field(default_factory=dict)
+    default_window_days: int = Field(ge=0)
+    category_window_days: dict[str, Annotated[int, Field(ge=0)]] = Field(
+        default_factory=dict
+    )
     rules: list[Rule]
 
+    @field_validator("category_window_days")
+    @classmethod
+    def _normalise_keys(cls, value: dict[str, int]) -> dict[str, int]:
+        """Match the normalisation the mapper applies to ``Article.category``.
+
+        The file is hand-edited, so a key written as "Electronics" must still
+        match an article whose category is "electronics" — otherwise the entry
+        silently never applies.
+        """
+        return {key.strip().lower(): days for key, days in value.items()}
+
     def window_days_for(self, category: str) -> int:
-        """Return the window for *category*, falling back to the default."""
-        return self.category_window_days.get(category, self.default_window_days)
+        """Return the window for *category*, falling back to the default.
+
+        *category* is normalised on the way in as well.  ``map_order`` already
+        produces canonical values, but nothing in the type system enforces
+        that, and a mismatch here fails silently by applying the default window
+        rather than raising.
+        """
+        key = category.strip().lower()
+        return self.category_window_days.get(key, self.default_window_days)
 
 
 def _fully_returned(
