@@ -94,6 +94,43 @@ Moved `test_views.py` out of `tests/services/` to sit beside `test_api.py`: serv
 
 ---
 
+## BR-004 · Category-specific return windows
+
+The resolver was built during BR-002, so the config change itself was three lines. The work was in the problem BR-004 *creates*.
+
+### Category becomes a lookup key
+Until now `category` was inert — mapped, carried, never used to decide anything. BR-004 turns it into a dictionary key, which introduces three silent failure modes:
+
+- upstream sends `"Apparel"` where another brand sends `"apparel"` → lookup misses → default window applies
+- a hand-typed config key `Electronics:` → never matches any article
+- a typo (`electornics:`) → inert entry
+
+All three fail *quietly*, in the direction of the default. Unlike unknown rule conditions — which BR-002 rejects at load — these cannot be validated, because the category universe comes from upstream data rather than from us.
+
+- **Decision:** normalise with `.strip().lower()` in the mapper, in the config keys at load, **and** in `window_days_for` itself.
+- **Rationale for the mapper:** turning inconsistent upstream shapes into a canonical domain model is precisely the mapper's job, and it already lowercased the `product_type` branch — leaving the explicit `category` branch unnormalised was simply inconsistent. Nothing renders `category`, so there is no display fidelity to lose.
+- **Rationale for the third place:** a test that constructed an `Article` directly, bypassing the mapper, failed — which is the point. Nothing in the type system enforces "`Article.category` is canonical"; it is a convention, and every eligibility test fixture builds articles by hand. Since a mismatch fails silently rather than loudly, the lookup normalises its own input too.
+
+### Configured windows
+```yaml
+default_window_days: 30
+category_window_days:
+  electronics: 14
+  apparel: 30
+```
+
+- `apparel: 30` duplicates the current default deliberately. The product decision was "apparel gets 30 days", not "apparel follows the default", so pinning it keeps apparel at 30 if the default ever moves.
+- `electronics` is configured despite appearing nowhere in the sample data — that is the point, as it shows the config is independent of current inventory.
+- No `digital` entry: the digital-item rule blocks those articles before the window is ever evaluated, so it would be dead config.
+- Nothing else invented. The data contains only `apparel`, `digital` and `footwear`, and guessing return policy for categories this codebase knows nothing about would be worse than leaving them on the default.
+
+### Non-negative windows
+`Field(ge=0)` on the default and on every category value. A negative window marks everything expired on day zero. Zero stays valid because it is meaningful — same-day-only returns — and is covered by a test.
+
+Deliberately *not* added: a statutory minimum (EU distance selling mandates 14 days). It is a policy question needing legal input, would be wrong for non-EU or B2B brands, and is already recorded under production readiness.
+
+---
+
 ## Production readiness
 
 If this shipped to production for 50 brands tomorrow, what breaks first?

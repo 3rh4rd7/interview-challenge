@@ -85,3 +85,24 @@ Unprompted, Claude mutation-checked its own work: it disabled the identifier com
 
 ### Result
 32 passing / 4 failing at the start of the challenge, **98 passing** now. `ruff check` and `mypy --strict` clean.
+
+---
+
+## BR-004 · Category-specific return windows (2026-08-02)
+
+### Approach
+Plan first again. Because the resolver already existed from BR-002, the config change was three lines — so the analysis was worth more than the implementation here.
+
+### What the analysis surfaced
+Claude's main finding was that BR-004 does not just add config, it changes what `category` *is*: previously inert data, now a dictionary lookup key. That introduces three silent failure modes — upstream casing mismatches, hand-typed config keys, and typos — all of which quietly apply the default window instead of erroring. It also noted these cannot be validated the way unknown rule conditions are, because the category universe comes from upstream rather than from us.
+
+It had already spotted that `_derive_category` lowercased the `product_type` branch but returned the explicit `category` key untouched, so the existing code only worked because `orders_raw.json` happens to be lowercase.
+
+### A test that earned its place
+I chose to normalise in the mapper. A test then failed because it built an `Article` directly, bypassing the mapper. Rather than quietly rewriting the test to route through `map_order`, Claude flagged that the failure was evidence: the "category is canonical" invariant is convention only, nothing in the type system enforces it, and every eligibility fixture constructs articles by hand. It added normalisation to the lookup as well and explained why, instead of treating the red test as noise.
+
+### Restraint I asked for indirectly
+Claude declined to invent return windows for categories beyond the two the brief named, on the grounds that guessing return policy for an unfamiliar business is worse than leaving them on the default. It also declined to add an EU statutory minimum, correctly treating it as a legal question rather than an engineering one, and left it in the production-readiness notes where it was already recorded.
+
+### Verification
+114 tests passing, `ruff check` and `mypy --strict` clean. Also exercised end to end at 20 days post-delivery: electronics expired on its 14-day window while apparel and unconfigured footwear both survived on 30, and a deliberately mis-cased `ELECTRONICS` article resolved correctly.
